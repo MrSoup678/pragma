@@ -40,6 +40,7 @@
 #include <cmaterialmanager.h>
 #include <cmaterial.h>
 #include <udm.hpp>
+#include <tiny_gltf.h>
 #include <pragma/model/animation/skeleton.hpp>
 #include <pragma/model/animation/bone.hpp>
 
@@ -56,7 +57,6 @@ void pragma::asset::ModelExportInfo::SetAnimationList(const std::vector<std::str
 }
 std::vector<std::string> *pragma::asset::ModelExportInfo::GetAnimationList() { return m_animations.has_value() ? &*m_animations : nullptr; }
 
-#include <tiny_gltf.h>
 struct GLTFBufferData {
 	tinygltf::Accessor &accessor;
 	tinygltf::BufferView &bufferView;
@@ -242,18 +242,18 @@ static bool load_image(tinygltf::Image *image, const int imageIdx, std::string *
 	}
 	auto &inputData = *static_cast<GLTFInputData *>(userData);
 	auto imgPath = inputData.path + image->uri;
-	auto relImgPath = util::Path::CreateFile(imgPath);
-	relImgPath.MakeRelative(util::get_program_path());
+	std::string relImgPath = util::Path::CreateFile(imgPath).GetString();
+	filemanager::find_relative_path(relImgPath, relImgPath);
 	auto &texManager = static_cast<msys::CMaterialManager &>(client->GetMaterialManager()).GetTextureManager();
-	auto texture = texManager.LoadAsset(relImgPath.GetString(), util::AssetLoadFlags::AbsolutePath | util::AssetLoadFlags::DontCache);
+	auto texture = texManager.LoadAsset(relImgPath, util::AssetLoadFlags::AbsolutePath | util::AssetLoadFlags::DontCache);
 	if(texture == nullptr) {
 		if(outErr)
-			*outErr = "Failed to load texture '" + relImgPath.GetString() + "'!";
+			*outErr = "Failed to load texture '" + relImgPath + "'!";
 		return false;
 	}
 	if(texture->HasValidVkTexture() == false) {
 		if(outErr)
-			*outErr = "Texture '" + relImgPath.GetString() + "' has no valid VK texture!";
+			*outErr = "Texture '" + relImgPath + "' has no valid VK texture!";
 		return false;
 	}
 	if(imageIdx >= inputData.textures.size())
@@ -321,8 +321,11 @@ static std::optional<OutputData> import_model(ufile::IFile *optFile, const std::
 			absPathToFile = FileManager::GetProgramPath() + '/' + fileName;
 		}
 	}
-	else
-		absPathToFile = FileManager::GetProgramPath() + '/' + fileName;
+	else if(!filemanager::find_absolute_path(fileName, absPathToFile)) {
+		spdlog::debug("Unable to determine absolute path for '{}'!", fileName);
+		outErrMsg = "Unable to determine absolute path for '" + fileName + "'!";
+		return {};
+	}
 	auto absPath = ufile::get_path_from_filename(absPathToFile);
 
 	auto mdlName = ufile::get_file_from_filename(fileName);
@@ -567,6 +570,7 @@ static std::optional<OutputData> import_model(ufile::IFile *optFile, const std::
 			mat->SetProperty("emission_factor", Vector3 {emissiveFactor.at(0), emissiveFactor.at(1), emissiveFactor.at(2)});
 
 		mat->UpdateTextures();
+		mat->SetLoaded(true);
 		auto savePath = pragma::asset::relative_path_to_absolute_path(matPathRelative, pragma::asset::Type::Material, util::CONVERT_PATH);
 		std::string err;
 		mat->Save(savePath.GetString(), err, true);

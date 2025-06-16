@@ -50,6 +50,7 @@ parser.add_argument("--skip-repository-updates", type=str2bool, nargs='?', const
 if platform == "linux":
 	parser.add_argument("--no-sudo", type=str2bool, nargs='?', const=True, default=False, help="Will not run sudo commands. System packages will have to be installed manually.")
 	parser.add_argument("--no-confirm", type=str2bool, nargs='?', const=True, default=False, help="Disable any interaction with user (suitable for automated run).")
+	parser.add_argument("--enable-assertions", type=str2bool, nargs='?', const=True, default=False, help="Enable debug assertions.")
 else:
 	parser.add_argument('--toolset', help='The toolset to use. Supported toolsets: msvc, clang, clang-cl', default=defaultToolset)
 args,unknown = parser.parse_known_args()
@@ -90,6 +91,7 @@ if platform == "linux":
 	cxx_compiler = args["cxx_compiler"]
 	no_sudo = args["no_sudo"]
 	no_confirm = args["no_confirm"]
+	enable_assertions = args["enable_assertions"]
 else:
 	toolset = args["toolset"]
 generator = args["generator"]
@@ -168,6 +170,7 @@ print("install_directory: " +install_directory)
 if platform == "linux":
 	print("no_sudo: " +str(no_sudo))
 	print("no_confirm: " +str(no_confirm))
+	print("enable_assertions: " +str(enable_assertions))
 print("cmake_args: " +', '.join(additional_cmake_args))
 print("modules: " +', '.join(modules))
 
@@ -193,6 +196,9 @@ if platform == "win32":
 			"-DCMAKE_CXX_SCAN_FOR_MODULES=ON"
 		]
 		toolsetCFlags = ["-Wno-error", "-Wno-unused-command-line-argument", "-Wno-enum-constexpr-conversion", "-fexceptions", "-fcxx-exceptions", "/EHsc"]
+
+if platform == "linux" and enable_assertions:
+	toolsetCFlags = ["-D_GLIBCXX_ASSERTIONS"]
 
 if update:
 	os.chdir(root)
@@ -220,10 +226,10 @@ mkpath(tools)
 if platform == "linux" and (c_compiler == "clang-20" or c_compiler == "clang++-20"):
 	curDir = os.getcwd()
 	os.chdir(deps_dir)
-	clang20_root = os.getcwd() +"/LLVM-20.1.1-Linux-X64"
+	clang20_root = os.getcwd() +"/LLVM-20.1.6-Linux-X64"
 	if not Path(clang20_root).is_dir():
 		print_msg("Downloading clang-20...")
-		http_extract("https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.1/LLVM-20.1.1-Linux-X64.tar.xz",format="tar.xz")
+		http_extract("https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.6/LLVM-20.1.6-Linux-X64.tar.xz",format="tar.xz")
 	if c_compiler == "clang-20":
 		c_compiler = clang20_root +"/bin/clang"
 	if cxx_compiler == "clang++-20":
@@ -722,9 +728,13 @@ reset_to_commit("0f03717") # v4.0.10
 print_msg("Building bit7z...")
 mkdir("build",cd=True)
 bit7z_cmake_args = ["-DBIT7Z_AUTO_FORMAT=ON"]
+
+bit7z_cflags = []
+if toolsetCFlags:
+	bit7z_cflags = toolsetCFlags.copy()
 if platform == "linux":
-	bit7z_cmake_args.append("-DCMAKE_CXX_FLAGS=-fPIC")
-cmake_configure_def_toolset("..",generator,bit7z_cmake_args)
+	bit7z_cflags += ["-fPIC"]
+cmake_configure("..",generator,toolsetArgs,bit7z_cmake_args,bit7z_cflags)
 cmake_build("Release")
 if platform == "linux":
 	bit7z_lib_name = "libbit7z.a"
@@ -760,7 +770,7 @@ if not Path(compressonator_root).is_dir():
 	print_msg("compressonator not found. Downloading...")
 	git_clone("https://github.com/Slaweknowy/compressonator.git")
 os.chdir("compressonator")
-reset_to_commit("1574fc2d551032d81b2e1b8d2c5bfa4ddd5622bb")
+reset_to_commit("45aaac121ba4494acd0ac7bf58ceb78f0349b40a")
 
 print_msg("Fetching compressonator dependencies...")
 execfile(compressonator_root +"/build/fetch_dependencies.py")
@@ -1004,7 +1014,7 @@ execfile(scripts_dir +"/user_modules.py",g,l)
 if with_essential_client_modules:
 	add_pragma_module(
 		name="pr_prosper_vulkan",
-		commitSha="aa91acce8a2e84d8601ccf1afa97446a8e72a0dd",
+		commitSha="354e9384d55a13954ef8b8ddbdb435ccf640a714",
 		repositoryUrl="https://github.com/Silverlan/pr_prosper_vulkan.git"
 	)
 
@@ -1017,7 +1027,7 @@ if with_common_modules:
 	)
 	add_pragma_module(
 		name="pr_audio_soloud",
-		commitSha="ae89cb889a7fa89ca47cdf878cb7f91eef8ba0a3",
+		commitSha="85406137a479ea96c90b0b1c3651727b87355fbf",
 		repositoryUrl="https://github.com/Silverlan/pr_soloud.git"
 	)
 	add_pragma_module(
@@ -1049,12 +1059,12 @@ if with_pfm:
 	if with_all_pfm_modules:
 		add_pragma_module(
 			name="pr_chromium",
-			commitSha="998a9a2b8a735a803ef0c062b6457db001978997",
+			commitSha="c5520b461825bbecd26d674fa708d62414303314",
 			repositoryUrl="https://github.com/Silverlan/pr_chromium.git"
 		)
 		add_pragma_module(
 			name="pr_unirender",
-			commitSha="ad67c597a25d36ddcf8a3ec6da11cc561ef267b1",
+			commitSha="ad367b5b0ab4333c9cbda7b0b09bdd8a69ecdabb",
 			repositoryUrl="https://github.com/Silverlan/pr_cycles.git"
 		)
 		add_pragma_module(
@@ -1064,12 +1074,12 @@ if with_pfm:
 		)
 		add_pragma_module(
 			name="pr_davinci",
-			commitSha="65ffb75ab860d32e255a9d0d2009fd2006e48aee",
+			commitSha="c0b465f9cbadfa243d70e0d6e52dd28c20ce91ba",
 			repositoryUrl="https://github.com/Silverlan/pr_davinci.git"
 		)
 		add_pragma_module(
 			name="pr_opencv",
-			commitSha="430e1cc87e741306753d1bdc3091bd04d537d6b1",
+			commitSha="6d026734d62440366e892c7c156f6ba14e4e4497",
 			repositoryUrl="https://github.com/Silverlan/pr_opencv.git"
 		)
 
@@ -1083,7 +1093,7 @@ if with_pfm:
 if with_vr:
 	add_pragma_module(
 		name="pr_openvr",
-		commitSha="31a765d7b3df1e9eb26decb7242b80635a40ed66",
+		commitSha="e04b16f6349abde8f7a2892dd870a7701c11d70a",
 		repositoryUrl="https://github.com/Silverlan/pr_openvr.git"
 	)
 
@@ -1271,8 +1281,8 @@ else:
 	sevenz_so_path = sevenz_root +"/CPP/7zip/Bundles/Format7zF"
 	os.chdir(sevenz_so_path)
 	subprocess.run(["make","-j","-f","../../cmpl_gcc.mak"],check=True)
-	mkpath(install_dir +"/bin")
-	cp(sevenz_so_path +"/b/g/7z.so",install_dir +"/bin/7z.so")
+	mkpath(install_dir +"/lib")
+	cp(sevenz_so_path +"/b/g/7z.so",install_dir +"/lib/7z.so")
 
 ########## install cpptrace ##########
 if platform == "win32":
@@ -1362,7 +1372,7 @@ def download_addon(name,addonName,url,commitId=None):
 curDir = os.getcwd()
 if not skip_repository_updates:
 	if with_pfm:
-		download_addon("PFM","filmmaker","https://github.com/Silverlan/pfm.git","6c92b31c3fe297e0610e597bdb0f208e0336cb25")
+		download_addon("PFM","filmmaker","https://github.com/Silverlan/pfm.git","edf69a7872b611edd3a4a6bf3c0e3bd4a10db94c")
 		download_addon("model editor","tool_model_editor","https://github.com/Silverlan/pragma_model_editor.git","a9ea4820f03be250bdf1e6951dad313561b75b17")
 
 	if with_vr:

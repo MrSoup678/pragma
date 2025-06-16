@@ -47,19 +47,16 @@ function gui.WIContextMenu:OnInitialize()
 	pBgOutline:SetColor(Color.Gray)
 	self.m_pBgOutline = pBgOutline
 	if util.is_valid(gui.impl.cbMouseInput) == false then
+		-- Make sure the context menu is closed if the user clicks outside of it
 		gui.impl.cbMouseInput = input.add_callback("OnMouseInput", function(button, action, mods)
 			if action == input.STATE_PRESS then
-				local window = gui.find_focused_window()
-				local el = gui.get_element_under_cursor(window, function(el)
-					return el:GetMouseInputEnabled()
+				gui.impl.mouseInputHandled = false
+				time.create_simple_timer(0.0,function()
+					if(gui.impl.mouseInputHandled == false) then
+						gui.close_all_context_menues()
+					end
+					gui.impl.mouseInputHandled = nil
 				end)
-				while util.is_valid(el) and el:GetClass() ~= "wicontextmenu" do
-					el = el:GetParent()
-				end
-				if util.is_valid(el) then
-					return
-				end
-				gui.close_all_context_menues()
 			end
 		end)
 	end
@@ -215,6 +212,40 @@ function gui.WIContextMenu:ScrollToItem(el)
 	local offset = el:GetAbsolutePos().y - elWrapper:GetAbsolutePos().y
 	scrlBar:SetScrollOffset(offset)
 end
+local function get_base_element(window)
+	local typeName = util.get_type_name(window)
+	if typeName == "Root" then
+		return window
+	end
+	if typeName ~= "Window" then
+		local el = window
+		while util.is_valid(el) do
+			if el:IsBaseElement() then
+				return el
+			end
+			el = el:GetParent()
+		end
+		local elBase = window:GetRootElement()
+		if util.is_valid(elBase) == false or util.get_type_name(elBase) ~= "Root" then
+			return
+		end
+		return elBase
+	end
+	if util.is_valid(window) == false then
+		window = gui.find_focused_window()
+		if util.is_valid(window) == false then
+			window = gui.get_primary_window()
+		end
+	end
+	if util.is_valid(window) == false then
+		return
+	end
+	local elBase = gui.get_base_element(window)
+	if util.is_valid(elBase) == false or util.get_type_name(elBase) ~= "Root" then
+		return
+	end
+	return elBase
+end
 function gui.WIContextMenu:AddItem(name, fcOnClick, keybind)
 	local pItem = gui.create("WIMenuItem", self.m_contents)
 	if pItem == nil then
@@ -230,12 +261,13 @@ function gui.WIContextMenu:AddItem(name, fcOnClick, keybind)
 		end
 	end
 	pItem:SetAction(function(pItem)
+		gui.impl.mouseInputHandled = true
 		if fcOnClick ~= nil then
 			if fcOnClick(pItem) == false then
 				return
 			end
 		end
-		gui.close_context_menu(pItem:GetRootElement())
+		gui.close_context_menu(get_base_element(pItem))
 	end)
 	pItem:SizeToContents()
 	table.insert(self.m_tItems, pItem)
@@ -352,6 +384,7 @@ function gui.WIContextMenu:AddSubMenu(name, onClick, fPopulate)
 		end
 	end)
 	pSubMenu = gui.create("WIContextMenu", self:GetParent())
+	pSubMenu:SetZPos(self:GetZPos())
 	pSubMenu:SetParentMenu(self, pItem)
 	pSubMenu:AddCallback("OnCursorExited", function()
 		pSubMenu:KillFocus()
@@ -375,40 +408,6 @@ function gui.WIContextMenu:AddSubMenu(name, onClick, fPopulate)
 
 	return pItem, pSubMenu
 end
-local function get_base_element(window)
-	local typeName = util.get_type_name(window)
-	if typeName == "Root" then
-		return window
-	end
-	if typeName ~= "Window" then
-		local el = window
-		while util.is_valid(el) do
-			if el:IsBaseElement() then
-				return el
-			end
-			el = el:GetParent()
-		end
-		local elBase = window:GetRootElement()
-		if util.is_valid(elBase) == false or util.get_type_name(elBase) ~= "Root" then
-			return
-		end
-		return elBase
-	end
-	if util.is_valid(window) == false then
-		window = gui.find_focused_window()
-		if util.is_valid(window) == false then
-			window = gui.get_primary_window()
-		end
-	end
-	if util.is_valid(window) == false then
-		return
-	end
-	local elBase = gui.get_base_element(window)
-	if util.is_valid(elBase) == false or util.get_type_name(elBase) ~= "Root" then
-		return
-	end
-	return elBase
-end
 gui.close_all_context_menues = function()
 	for _, elMenu in pairs(gui.impl.contextMenu.menues) do
 		if elMenu:IsValid() then
@@ -423,7 +422,6 @@ gui.close_context_menu = function(window)
 	if util.is_valid(elBase) == false then
 		return
 	end
-
 	if util.is_valid(gui.impl.contextMenu.menues[elBase]) == false then
 		return
 	end
@@ -442,15 +440,19 @@ gui.open_context_menu = function(window)
 		menu:SetName("context_menu")
 		menu:RequestFocus()
 		menu:SetPos(elBase:GetCursorPos())
+		menu:SetZPos(20000)
 		gui.impl.contextMenu.menues[elBase] = menu
 	end
 	return menu
 end
-gui.is_context_menu_open = function(elBase)
+gui.get_context_menu = function(elBase)
 	elBase = elBase or gui.get_base_element()
 	if util.is_valid(elBase) == false then
-		return false
+		return
 	end
-	return util.is_valid(gui.impl.contextMenu.menues[elBase])
+	return gui.impl.contextMenu.menues[elBase]
+end
+gui.is_context_menu_open = function(elBase)
+	return util.is_valid(gui.get_context_menu(elBase))
 end
 gui.register("WIContextMenu", gui.WIContextMenu)

@@ -81,6 +81,9 @@
 #include <luabind/discard_result_policy.hpp>
 #include <filesystem>
 #include <fmt/core.h>
+#ifndef _WIN32
+#include <signal.h>
+#endif
 
 import bezierfit;
 import panima;
@@ -708,7 +711,7 @@ void NetworkState::RegisterSharedLuaLibraries(Lua::Interface &lua)
 #else
 		isBreakDefined = true;
 		lua_pushtablecfunction(lua.GetState(), "debug", "breakpoint", static_cast<int (*)(lua_State *)>([](lua_State *l) -> int {
-			__builtin_trap();
+			raise(SIGTRAP);
 			return 0;
 		}))
 #endif
@@ -1376,8 +1379,17 @@ void Game::RegisterLuaLibraries()
 			  return {};
 		  auto isPathToDir = !path.empty() && (path.back() == '/' || path.back() == '\\');
 		  auto absPath = isPathToDir ? ::util::Path::CreatePath(rpath) : ::util::Path::CreateFile(rpath);
-		  absPath.MakeRelative(util::get_program_path());
-		  return luabind::object {l, absPath.GetString()};
+		  std::string relPath;
+		  if(filemanager::find_relative_path(absPath.GetString(), relPath))
+		  	return luabind::object {l, relPath};
+		  return {};
+	  })),
+	  luabind::def("find_path_on_disk", static_cast<luabind::object (*)(lua_State *, const std::string &)>([](lua_State *l, const std::string &path) -> luabind::object {
+		  std::string rpath;
+		  auto res = FileManager::FindAbsolutePath(path, rpath);
+		  if(res == false)
+			  return {};
+		  return luabind::object {l, rpath};
 	  })),
 	  luabind::def(
 	    "make_relative",
