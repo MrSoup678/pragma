@@ -15,7 +15,8 @@ get_submodule("clip2tri","https://github.com/raptor/clip2tri.git","f62a734d22733
 get_submodule("efsw","https://github.com/SpartanJ/efsw.git","f4ec910")
 get_submodule("eigen","https://gitlab.com/libeigen/eigen.git","969c31ee")
 get_submodule("exprtk","https://github.com/ArashPartow/exprtk.git","f46bffcd6966d38a09023fb37ba9335214c9b959")
-get_submodule("fmt","https://github.com/fmtlib/fmt.git","a337011")
+#This is getting annoying. I had to change this lib's version 2 times due to conflicts between this source tree and system.
+get_submodule("fmt","https://github.com/fmtlib/fmt.git","40626af88bd7df9a5fb80be7b25ac85b122d6c21")
 get_submodule("freetype","https://github.com/aseprite/freetype2.git","e8ebfe9")
 get_submodule("glfw","https://github.com/Silverlan/glfw.git","8d6f5d9bc8477057dccc1190d46b0945219e2f33","feat/drag-callback")
 get_submodule("gli","https://github.com/g-truc/gli.git","779b99ac6656e4d30c3b24e96e0136a59649a869")
