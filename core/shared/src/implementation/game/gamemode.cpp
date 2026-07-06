@@ -11,8 +11,8 @@ std::string pragma::Game::GetGameModeScriptDirectoryPath() const
 	auto *info = GetGameMode();
 	if(info == nullptr)
 		return "";
-	auto &id = info->id;
-	return "gamemodes\\" + id;
+	auto &id = info->component_name;
+	return "gamemodes\\components\\" + id;
 }
 std::string pragma::Game::GetGameModeScriptDirectoryNetworkPath() const
 {
