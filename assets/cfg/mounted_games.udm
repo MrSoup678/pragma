@@ -446,7 +446,10 @@
 	"steam"
 	{
 		$uint32 app_id 400
-		$string game_path "common/Portal/portal/"
+		$array game_paths [string][
+			"common/Portal/portal/",
+			"common/Portal/hl2/"
+		]
 		$bool mount_workshop 0
 	}
 	"engine"
