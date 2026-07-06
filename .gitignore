@@ -5,6 +5,7 @@ deps/
 /build_tools/gcc/
 /build_scripts/user_modules.py
 CMakeLists.txt.user
+CMakeUserPresets.json
 *.pyc
 sync.ffs_lock
 /modules/
